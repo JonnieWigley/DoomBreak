@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "DoomBreak",
+    "slug": "doombreak",
+    "version": "0.1.0",
+    "scheme": "doombreak",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "android"
+    ],
+    "android": {
+      "package": "com.jonnie.doombreak",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png",
+        "backgroundColor": "#DC143C"
+      },
+      "blockedPermissions": [
+        "android.permission.INTERNET",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/android-icon-foreground.png",
+          "imageWidth": 220,
+          "backgroundColor": "#DC143C"
+        }
+      ]
+    ]
+  }
+}

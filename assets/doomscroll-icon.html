@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doomscrolling Prohibition Icon</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        svg {
+            width: 400px;
+            height: 400px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+        }
+    </style>
+</head>
+<body>
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Red circle background -->
+        <circle cx="100" cy="100" r="95" fill="#DC143C" stroke="#A00" stroke-width="2"/>
+
+        <!-- White diagonal stripe (prohibition bar) -->
+        <rect x="30" y="90" width="140" height="20" fill="white" transform="rotate(-45 100 100)"/>
+
+        <!-- Phone/device outline -->
+        <rect x="75" y="55" width="50" height="85" rx="4" ry="4" fill="none" stroke="white" stroke-width="3"/>
+
+        <!-- Phone screen -->
+        <rect x="80" y="62" width="40" height="70" rx="2" ry="2" fill="white" opacity="0.2"/>
+
+        <!-- Scrolling content lines (infinite scroll symbol) -->
+        <line x1="85" y1="68" x2="115" y2="68" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="85" y1="76" x2="115" y2="76" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+        <line x1="85" y1="84" x2="115" y2="84" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+        <line x1="85" y1="92" x2="115" y2="92" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="85" y1="100" x2="115" y2="100" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+        <line x1="85" y1="108" x2="115" y2="108" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+        <line x1="85" y1="116" x2="115" y2="116" stroke="white" stroke-width="2" stroke-linecap="round"/>
+
+        <!-- Down arrow indicating scrolling -->
+        <path d="M 100 125 L 105 132 L 95 132 Z" fill="white"/>
+    </svg>
+</body>
+</html>
