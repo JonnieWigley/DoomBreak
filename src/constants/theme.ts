@@ -7,6 +7,7 @@ export type Palette = {
   accent: string; // filled buttons / badges
   onAccent: string;
   danger: string;
+  good: string;
   warnBg: string;
   warnText: string;
 };
@@ -20,6 +21,7 @@ export const light: Palette = {
   accent: '#111111',
   onAccent: '#ffffff',
   danger: '#b00020',
+  good: '#1a7f4b',
   warnBg: '#fff3cd',
   warnText: '#664d03',
 };
@@ -33,6 +35,7 @@ export const dark: Palette = {
   accent: '#f2f2f5',
   onAccent: '#111111',
   danger: '#ff6b81',
+  good: '#5ed08f',
   warnBg: '#3a2f0b',
   warnText: '#ffda6a',
 };

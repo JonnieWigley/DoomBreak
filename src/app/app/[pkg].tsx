@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppBlocker, type AppLimits, type BlockerStatus } from '../../../modules/app-blocker';
+import { AppBlocker, type AppLimits, type BlockerStatus, type DayTotal } from '../../../modules/app-blocker';
 import { AppIcon } from '../../components/app-icon';
+import { ScreenTimeChart, WeekTrendSection } from '../../components/screen-time-chart';
 import { Stepper } from '../../components/stepper';
 import { SOCIAL_APPS } from '../../constants/apps';
 import { describe, fmtDuration, isBlocked } from '../../constants/format';
@@ -36,24 +37,26 @@ export default function AppRule() {
     };
   }, [refresh]);
 
-  // Today's total time in this app, from the same usage data as the phone's Screen time. -1 = no access yet.
-  const [screenTime, setScreenTime] = useState<number | null>(null);
+  // The last 14 days of time in this app (7 shown, 7 more for the week-on-week comparison), from the same usage data as the phone's Screen time.
+  // Empty until usage access has been granted.
+  const [daily, setDaily] = useState<DayTotal[] | null>(null);
 
-  const refreshScreenTime = useCallback(() => setScreenTime(AppBlocker.getScreenTimeToday(pkg)), [pkg]);
+  const refreshDaily = useCallback(() => setDaily(AppBlocker.getDailyScreenTime(pkg, 14)), [pkg]);
 
   useEffect(() => {
-    refreshScreenTime();
-    const sub = AppState.addEventListener('change', (st) => st === 'active' && refreshScreenTime());
-    const id = setInterval(refreshScreenTime, 10_000);
+    refreshDaily();
+    const sub = AppState.addEventListener('change', (st) => st === 'active' && refreshDaily());
+    const id = setInterval(refreshDaily, 10_000);
     return () => {
       sub.remove();
       clearInterval(id);
     };
-  }, [refreshScreenTime]);
+  }, [refreshDaily]);
 
   if (!app || !status || !limits) return null;
 
   const state = status.apps.find((a) => a.package === pkg);
+  const today = daily && daily.length > 0 ? daily[daily.length - 1].ms : null;
 
   const toggle = (on: boolean) => {
     const targets = on ? [...status.targets, pkg] : status.targets.filter((p) => p !== pkg);
@@ -84,13 +87,20 @@ export default function AppRule() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.heading}>Screen time today</Text>
-        {screenTime !== null && screenTime >= 0 ? (
-          <Text style={styles.bigValue}>{fmtDuration(screenTime)}</Text>
+        <Text style={styles.heading}>Screen time</Text>
+        {today !== null && daily ? (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.bigValue}>{fmtDuration(today)}</Text>
+              <Text style={styles.sub}>today</Text>
+            </View>
+            <ScreenTimeChart data={daily.slice(-7)} />
+            <WeekTrendSection data={daily} />
+          </>
         ) : (
           <>
             <Text style={styles.sub}>
-              Allow “Usage access” to show how long you’ve spent in {app.name} today, using the same data as
+              Allow “Usage access” to see how long you spend in {app.name} each day, using the same data as
               your phone’s Screen time.
             </Text>
             <Pressable style={styles.button} onPress={AppBlocker.openUsageAccessSettings}>

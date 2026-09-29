@@ -34,16 +34,34 @@ class AppBlockerModule : Module() {
     return mode == AppOpsManager.MODE_ALLOWED
   }
 
-  /** Sums the time the app had a resumed activity since local midnight, from Android's usage events. */
-  private fun screenTimeToday(pkg: String): Long {
+  /**
+   * Foreground time per local calendar day for the last [days] days (oldest first), from Android's usage events.
+   * Android only keeps about a week of events, so each day's total is also saved and the larger value wins.
+   */
+  private fun dailyScreenTime(pkg: String, days: Int): List<Map<String, Any>> {
     val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
     val now = System.currentTimeMillis()
-    val midnight = Calendar.getInstance().apply {
+    val cal = Calendar.getInstance().apply {
       set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-    val events = usm.queryEvents(midnight, now)
+    }
+    val starts = LongArray(days)
+    for (i in days - 1 downTo 0) {
+      starts[i] = cal.timeInMillis
+      cal.add(Calendar.DAY_OF_YEAR, -1)
+    }
+    val totals = LongArray(days)
+
+    // Adds [from, to) to every day it overlaps, so a session across midnight is split.
+    fun add(from: Long, to: Long) {
+      for (i in 0 until days) {
+        val end = if (i + 1 < days) starts[i + 1] else now
+        val overlap = minOf(to, end) - maxOf(from, starts[i])
+        if (overlap > 0) totals[i] += overlap
+      }
+    }
+
+    val events = usm.queryEvents(starts[0], now)
     val e = UsageEvents.Event()
-    var total = 0L
     var resumedAt = 0L
     while (events.hasNextEvent()) {
       events.getNextEvent(e)
@@ -51,17 +69,25 @@ class AppBlockerModule : Module() {
         // 1 = activity resumed, 2 = paused, 23 = stopped, 16 = screen off
         1 -> if (e.packageName == pkg && resumedAt == 0L) resumedAt = e.timeStamp
         2, 23 -> if (e.packageName == pkg && resumedAt != 0L) {
-          total += e.timeStamp - resumedAt
+          add(resumedAt, e.timeStamp)
           resumedAt = 0L
         }
         16 -> if (resumedAt != 0L) {
-          total += e.timeStamp - resumedAt
+          add(resumedAt, e.timeStamp)
           resumedAt = 0L
         }
       }
     }
-    if (resumedAt != 0L) total += now - resumedAt
-    return total
+    if (resumedAt != 0L) add(resumedAt, now)
+
+    val saved = BlockerState(context)
+    // First time we ever look: trust the last 7 days (what Android still holds); older days stay "unknown".
+    if (saved.trackingSince == 0L && days >= 7) saved.trackingSince = starts[days - 7]
+    return (0 until days).map { i ->
+      val ms = maxOf(totals[i], saved.dayTotal(pkg, starts[i]))
+      if (ms != saved.dayTotal(pkg, starts[i])) saved.setDayTotal(pkg, starts[i], ms)
+      mapOf("dayStart" to starts[i], "ms" to ms, "known" to (saved.trackingSince != 0L && starts[i] >= saved.trackingSince))
+    }
   }
 
   /** The app's own launcher icon as a base64 PNG, or null if it isn't installed. */
@@ -113,8 +139,10 @@ class AppBlockerModule : Module() {
       )
     }
 
-    /** Foreground time today in ms, or -1 if usage access hasn't been granted. */
-    Function("getScreenTimeToday") { pkg: String -> if (hasUsageAccess()) screenTimeToday(pkg) else -1L }
+    /** Per-day foreground time for the last [days] days, oldest first. Empty if usage access hasn't been granted. */
+    Function("getDailyScreenTime") { pkg: String, days: Int ->
+      if (hasUsageAccess()) dailyScreenTime(pkg, days) else emptyList()
+    }
 
     Function("resetApp") { pkg: String -> BlockerState(context).resetApp(pkg) }
 

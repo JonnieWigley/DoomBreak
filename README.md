@@ -29,7 +29,18 @@ checks which app is in front. It counts your time in the apps you chose and send
 - Settings and timers are stored on the phone only.
 - The app has **no internet permission** and contains no network code.
 
-## Build and install
+## Install (no build needed)
+
+1. Download `DoomBreak-*.apk` from the [Releases](../../releases) page, on your phone.
+2. Open the file. Android will ask you to allow installs from your browser or files app. Allow it for this install.
+   If Play Protect warns that the app is unrecognised, choose **Install anyway**.
+3. Open DoomBreak, tap **Open Accessibility settings**, and switch on **DoomBreak**.
+   If the toggle is greyed out, open the app's info page, tap the ⋮ menu and choose **Allow restricted settings**.
+4. Optional, for screen time: Settings → Special app access → Usage access → **DoomBreak** → allow.
+
+Needs Android 7.0 or newer on a 64-bit (arm64) phone, which covers almost every phone made since 2017.
+
+## Build it yourself
 
 Requirements: Node 20.19.4+, JDK 17+, Android SDK, an Android phone with USB debugging.
 
@@ -63,7 +74,7 @@ Add it to `src/constants/apps.ts` and to the `<queries>` list in
 
 ## Trademarks
 
-TikTok, Instagram, Facebook, X, Snapchat, Reddit, Threads, Pinterest and LinkedIn are trademarks of their
+TikTok, Instagram, YouTube, Facebook, X, Snapchat, Reddit, Discord, Threads, Pinterest and LinkedIn are trademarks of their
 respective owners. Their logos in `assets/logos/` are used only to identify those apps in the list, and this
 project isn't affiliated with or endorsed by any of them. If you fork this publicly, check each company's brand
 guidelines and replace the logos if needed.
