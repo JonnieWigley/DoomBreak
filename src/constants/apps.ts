@@ -11,7 +11,7 @@ export const SOCIAL_APPS: SocialApp[] = [
   { package: 'com.instagram.android', name: 'Instagram', logo: require('../../assets/logos/instagram.png') },
   { package: 'com.facebook.katana', name: 'Facebook', logo: require('../../assets/logos/facebook.png') },
   { package: 'com.twitter.android', name: 'X (Twitter)', logo: require('../../assets/logos/x.png') },
-  { package: 'com.snapchat.android', name: 'Snapchat' },
+  { package: 'com.snapchat.android', name: 'Snapchat', logo: require('../../assets/logos/snapchat.png') },
   { package: 'com.reddit.frontpage', name: 'Reddit', logo: require('../../assets/logos/reddit.png') },
   { package: 'com.instagram.barcelona', name: 'Threads', logo: require('../../assets/logos/threads.png') },
   { package: 'com.pinterest', name: 'Pinterest', logo: require('../../assets/logos/pinterest.png') },
