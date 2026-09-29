@@ -18,6 +18,9 @@ export type BlockerStatus = {
   now: number;
 };
 
+/** `known` is false for days from before the app started tracking, where 0 would mean "no data", not "no use". */
+export type DayTotal = { dayStart: number; ms: number; known: boolean };
+
 export type AppLimits = { allowedMinutes: number; blockMinutes: number };
 
 const Native = requireNativeModule('AppBlocker');
@@ -34,8 +37,8 @@ export const AppBlocker = {
   getAppIcon: (pkg: string): string | null => Native.getAppIcon(pkg),
   hasUsageAccess: (): boolean => Native.hasUsageAccess(),
   openUsageAccessSettings: (): void => Native.openUsageAccessSettings(),
-  /** Foreground time today in ms (same data as the phone's Screen time), or -1 without usage access. */
-  getScreenTimeToday: (pkg: string): number => Native.getScreenTimeToday(pkg),
+  /** Per-day foreground time (same data as the phone's Screen time), oldest first. Empty without usage access. */
+  getDailyScreenTime: (pkg: string, days: number): DayTotal[] => Native.getDailyScreenTime(pkg, days),
   getStatus: (): BlockerStatus => Native.getStatus(),
   resetApp: (pkg: string): void => Native.resetApp(pkg),
   resetSession: (): void => Native.resetSession(),

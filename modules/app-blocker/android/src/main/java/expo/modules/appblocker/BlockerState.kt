@@ -37,6 +37,18 @@ class BlockerState(context: Context) {
   fun warned(pkg: String): Boolean = prefs.getBoolean("warned:$pkg", false)
   fun setWarned(pkg: String, v: Boolean) = prefs.edit().putBoolean("warned:$pkg", v).apply()
 
+  /** Screen time per app per calendar day (key = local midnight in ms), kept so history outlives Android's own. */
+  fun dayTotal(pkg: String, dayStart: Long): Long = prefs.getLong("day:$pkg:$dayStart", 0L)
+  fun setDayTotal(pkg: String, dayStart: Long, v: Long) = prefs.edit().putLong("day:$pkg:$dayStart", v).apply()
+
+  /**
+   * Local midnight of the earliest day whose screen time we can trust: Android keeps about a week of usage events,
+   * so anything older than the first time we asked is unknown, not zero. 0 = not set yet.
+   */
+  var trackingSince: Long
+    get() = prefs.getLong("trackingSince", 0L)
+    set(v) = prefs.edit().putLong("trackingSince", v).apply()
+
   fun resetApp(pkg: String) {
     prefs.edit()
       .putLong("used:$pkg", 0L)
