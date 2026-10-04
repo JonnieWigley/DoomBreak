@@ -11,7 +11,10 @@ export type AppStatus = {
 };
 
 export type BlockerStatus = {
-  serviceEnabled: boolean;
+  /** Usage access: needed to see which app is in front. */
+  usageAccess: boolean;
+  /** "Display over other apps": needed for the cards and to send you home. */
+  overlay: boolean;
   enabled: boolean;
   targets: string[];
   apps: AppStatus[];
@@ -26,8 +29,8 @@ export type AppLimits = { allowedMinutes: number; blockMinutes: number };
 const Native = requireNativeModule('AppBlocker');
 
 export const AppBlocker = {
-  isServiceEnabled: (): boolean => Native.isServiceEnabled(),
-  openAccessibilitySettings: (): void => Native.openAccessibilitySettings(),
+  canDrawOverlays: (): boolean => Native.canDrawOverlays(),
+  openOverlaySettings: (): void => Native.openOverlaySettings(),
   /** Master switch and the set of limited apps. */
   configure: (enabled: boolean, targets: string[]): void => Native.configure(enabled, targets),
   getAppLimits: (pkg: string): AppLimits => Native.getAppLimits(pkg),
