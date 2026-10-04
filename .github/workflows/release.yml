@@ -37,11 +37,28 @@ jobs:
 
       - run: npx expo prebuild --platform android --no-install
 
-      # Signed with the Expo template's debug.keystore, the same key as earlier releases,
-      # so new APKs install over old ones.
+      # Signed with DoomBreak's own key, stored as repository secrets (see plugins/with-release-signing.js).
+      # Refuses to build without it, so a release is never signed with the public debug key.
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.DOOMBREAK_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::DOOMBREAK_KEYSTORE_BASE64 secret is missing"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/doombreak-release.jks"
+
       - name: Build release APK
         working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_DOOMBREAK_STORE_FILE: ${{ runner.temp }}/doombreak-release.jks
+          ORG_GRADLE_PROJECT_DOOMBREAK_STORE_PASSWORD: ${{ secrets.DOOMBREAK_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_DOOMBREAK_KEY_ALIAS: ${{ secrets.DOOMBREAK_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_DOOMBREAK_KEY_PASSWORD: ${{ secrets.DOOMBREAK_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
+
+      - run: rm -f "$RUNNER_TEMP/doombreak-release.jks"
 
       - run: mv android/app/build/outputs/apk/release/app-release.apk "DoomBreak-$GITHUB_REF_NAME.apk"
 
