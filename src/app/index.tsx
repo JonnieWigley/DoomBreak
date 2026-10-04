@@ -51,13 +51,24 @@ export default function Home() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}>
-      {!status.serviceEnabled && (
+      {!status.usageAccess && (
         <View style={styles.warn}>
           <Text style={styles.warnText}>
-            Blocking is off until you enable “DoomBreak” in Accessibility settings.
+            Blocking is off until you allow “Usage access” for DoomBreak, so it can see which app is open.
           </Text>
-          <Pressable style={styles.button} onPress={AppBlocker.openAccessibilitySettings}>
-            <Text style={styles.buttonText}>Open Accessibility settings</Text>
+          <Pressable style={styles.button} onPress={AppBlocker.openUsageAccessSettings}>
+            <Text style={styles.buttonText}>Allow usage access</Text>
+          </Pressable>
+        </View>
+      )}
+      {!status.overlay && (
+        <View style={styles.warn}>
+          <Text style={styles.warnText}>
+            Blocking is off until you allow DoomBreak to “Display over other apps”, so it can show its warnings and
+            close apps.
+          </Text>
+          <Pressable style={styles.button} onPress={AppBlocker.openOverlaySettings}>
+            <Text style={styles.buttonText}>Allow display over other apps</Text>
           </Pressable>
         </View>
       )}

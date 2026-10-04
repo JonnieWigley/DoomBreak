@@ -1,3 +1,0 @@
-<resources>
-  <string name="blocker_service_description">Detects when a blocked app is opened so DoomBreak can enforce your time limit. It only checks which app is in front; it does not read or store screen content.</string>
-</resources>

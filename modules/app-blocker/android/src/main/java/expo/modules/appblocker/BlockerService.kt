@@ -1,30 +1,51 @@
 package expo.modules.appblocker
 
-import android.accessibilityservice.AccessibilityService
+import android.app.AppOpsManager
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.view.accessibility.AccessibilityEvent
-import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 
-class BlockerAccessibilityService : AccessibilityService() {
+/**
+ * Runs while limits are on. Reads which app is in front from Android's usage events (Usage access) and draws its cards
+ * over other apps ("Display over other apps"). Deliberately not an accessibility service: banking apps refuse to open
+ * while a sideloaded app's accessibility service is switched on.
+ */
+class BlockerService : Service() {
   private lateinit var state: BlockerState
+  private lateinit var usm: UsageStatsManager
   private val handler = Handler(Looper.getMainLooper())
   private var countingPkg: String? = null
   private var lastTickAt = 0L
+
+  // The app in front, as of the newest usage event read so far.
+  private var front: String? = null
+  private var lastEventAt = 0L
 
   private enum class Kind { WARNING, BLOCKED }
 
@@ -38,12 +59,33 @@ class BlockerAccessibilityService : AccessibilityService() {
   private var restView: View? = null
   private val hideBanner = Runnable { removeBanner() }
 
-  /** Runs every second: works out which app is in front, then counts or blocks. Events only trigger it early. */
+  /** Runs every second: works out which app is in front, then counts or blocks. */
   private val poll = object : Runnable {
     override fun run() {
       handler.removeCallbacks(this)
-      check()
+      if (!shouldRun(this@BlockerService)) {
+        stopSelf()
+        return
+      }
+      try {
+        check()
+      } catch (e: Exception) {
+        Log.w(TAG, "check failed", e)
+      }
       handler.postDelayed(this, 1000)
+    }
+  }
+
+  /** Reads usage events since the last call; the latest "activity resumed" is the app in front. */
+  private fun updateFront(now: Long) {
+    // On the first read, look back far enough to find whatever is open right now.
+    val from = if (lastEventAt == 0L) now - 60 * 60_000L else lastEventAt
+    val events = usm.queryEvents(from, now)
+    val e = UsageEvents.Event()
+    while (events.hasNextEvent()) {
+      events.getNextEvent(e)
+      if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED) front = e.packageName
+      lastEventAt = maxOf(lastEventAt, e.timeStamp)
     }
   }
 
@@ -63,30 +105,25 @@ class BlockerAccessibilityService : AccessibilityService() {
       if (left <= 0) removeBanner() else subView?.text = "Available again in ${clock((left + 999) / 1000)}"
     }
 
+    updateFront(now)
     val pm = getSystemService(POWER_SERVICE) as PowerManager
-    val front = rootInActiveWindow?.packageName?.toString()
     Log.d(TAG, "check front=$front counting=$countingPkg")
 
     if (!pm.isInteractive) {
       stopCounting()
       return
     }
-    // Unknown, keyboard and system windows don't change which app is in front.
-    val unchanged = front == null || isNeutral(front)
-    val app = if (unchanged) countingPkg else front?.takeIf { it in targets }
-    if (app == null || app !in targets) {
+    val app = front?.takeIf { it in targets }
+    if (app == null) {
       stopCounting()
       return
     }
-    if (!state.enabled) return
 
     val blockedUntil = state.blockedUntil(app)
     if (now < blockedUntil) {
       stopCounting()
-      if (!unchanged) {
-        showBlocked(app, blockedUntil)
-        goHome()
-      }
+      if (bannerKind != Kind.BLOCKED || bannerApp != app) showBlocked(app, blockedUntil)
+      goHome()
       return
     }
 
@@ -115,12 +152,20 @@ class BlockerAccessibilityService : AccessibilityService() {
     }
   }
 
-  override fun onServiceConnected() {
-    super.onServiceConnected()
+  override fun onCreate() {
+    super.onCreate()
     state = BlockerState(this)
+    usm = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
+  }
+
+  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    startInForeground()
     instance = this
     handler.post(poll)
+    return START_STICKY
   }
+
+  override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onDestroy() {
     if (instance === this) instance = null
@@ -129,11 +174,33 @@ class BlockerAccessibilityService : AccessibilityService() {
     super.onDestroy()
   }
 
-  override fun onInterrupt() {}
-
-  override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-    if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-    handler.post(poll) // react immediately instead of waiting up to a second
+  private fun startInForeground() {
+    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      nm.createNotificationChannel(
+        NotificationChannel(CHANNEL_ID, "Blocking", NotificationManager.IMPORTANCE_MIN).apply {
+          description = "Shown while DoomBreak is enforcing your limits."
+          setShowBadge(false)
+        }
+      )
+    }
+    val open = packageManager.getLaunchIntentForPackage(packageName)?.let {
+      PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+    val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL_ID)
+    else @Suppress("DEPRECATION") Notification.Builder(this)
+    val notification = builder
+      .setSmallIcon(R.drawable.ic_hourglass)
+      .setContentTitle("DoomBreak is on")
+      .setContentText("Your app limits are being enforced.")
+      .setContentIntent(open)
+      .setOngoing(true)
+      .build()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+    } else {
+      startForeground(NOTIFICATION_ID, notification)
+    }
   }
 
   private fun stopCounting() {
@@ -158,14 +225,15 @@ class BlockerAccessibilityService : AccessibilityService() {
     "This app"
   }
 
+  /** Brings up the home screen. Allowed from the background because the app can draw over other apps. */
   private fun goHome() {
-    performGlobalAction(GLOBAL_ACTION_HOME)
-  }
-
-  private fun isNeutral(pkg: String): Boolean {
-    if (pkg == "com.android.systemui") return true
-    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-    return imm.enabledInputMethodList.any { it.packageName == pkg }
+    try {
+      startActivity(
+        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      )
+    } catch (e: Exception) {
+      Log.w(TAG, "couldn't go home", e)
+    }
   }
 
   /** 125 -> "2:05", 3725 -> "1:02:05". */
@@ -236,7 +304,7 @@ class BlockerAccessibilityService : AccessibilityService() {
       val icon = FrameLayout(this).apply {
         background = rounded(iconBg, 10)
         addView(
-          ImageView(this@BlockerAccessibilityService).apply {
+          ImageView(this@BlockerService).apply {
             setImageResource(if (warning) R.drawable.ic_hourglass else R.drawable.ic_lock)
             setColorFilter(iconFg)
           },
@@ -299,7 +367,8 @@ class BlockerAccessibilityService : AccessibilityService() {
       val lp = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
-        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
           WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
           WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -341,6 +410,45 @@ class BlockerAccessibilityService : AccessibilityService() {
 
   companion object {
     const val TAG = "DoomBlocker"
-    @Volatile var instance: BlockerAccessibilityService? = null
+    private const val CHANNEL_ID = "blocking"
+    private const val NOTIFICATION_ID = 1
+    @Volatile var instance: BlockerService? = null
+
+    fun hasUsageAccess(context: Context): Boolean {
+      val ops = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+      @Suppress("DEPRECATION")
+      val mode = ops.checkOpNoThrow(
+        AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName
+      )
+      return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    fun canDrawOverlays(context: Context): Boolean =
+      Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
+
+    /** Both permissions granted, so blocking can work. */
+    fun hasPermissions(context: Context): Boolean = hasUsageAccess(context) && canDrawOverlays(context)
+
+    fun shouldRun(context: Context): Boolean {
+      val s = BlockerState(context)
+      return s.enabled && s.targets.isNotEmpty() && hasPermissions(context)
+    }
+
+    /** Starts or stops the service to match the settings and permissions. */
+    fun sync(context: Context) {
+      val intent = Intent(context, BlockerService::class.java)
+      if (!shouldRun(context)) {
+        context.stopService(intent)
+        return
+      }
+      if (instance != null) return
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+        else context.startService(intent)
+      } catch (e: Exception) {
+        // Android refuses to start it from the background in some states; the next sync (app opened, reboot) retries.
+        Log.w(TAG, "couldn't start blocker", e)
+      }
+    }
   }
 }

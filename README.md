@@ -14,18 +14,23 @@ Built with Expo (SDK 57) and a small local Kotlin module, [`modules/app-blocker`
 
 ## How it works
 
-Android doesn't let one app force-close another, so DoomBreak uses an **Accessibility Service**. Once a second it
-checks which app is in front. It counts your time in the apps you chose and sends you home when the limit is hit.
+Android doesn't let one app force-close another. Instead, while limits are on, a small background service reads
+Android's usage events once a second to see which app is in front. It counts your time in the apps you chose, and when
+the limit is hit it opens the home screen and shows a card over it.
+
+DoomBreak deliberately doesn't use an accessibility service. Banking and other security-sensitive apps often refuse to
+open while a sideloaded app has one switched on, because that's how banking malware works.
 
 ## Permissions and privacy
 
 | Permission | Why |
 |---|---|
-| Accessibility service | To see which app is in front, and to send you home. |
-| Usage access (optional) | To show today's screen time per app. Read-only. |
+| Usage access | To see which app is in front, and to show each app's screen time. Read-only. |
+| Display over other apps | To show the warning and "on a break" cards, and to send you home. |
 
-- The only thing read from the screen is the **package name of the app in front**. No screen text, keystrokes,
-  messages or screenshots are read.
+- The only thing DoomBreak learns is **which app is in front**. Nothing on screen is read: no text, keystrokes,
+  messages or screenshots.
+- While limits are on, Android shows a "DoomBreak is on" notification for the background service.
 - Settings and timers are stored on the phone only.
 - The app has **no internet permission** and contains no network code.
 
@@ -34,9 +39,9 @@ checks which app is in front. It counts your time in the apps you chose and send
 1. Download `DoomBreak-*.apk` from the [Releases](../../releases) page, on your phone.
 2. Open the file. Android will ask you to allow installs from your browser or files app. Allow it for this install.
    If Play Protect warns that the app is unrecognised, choose **Install anyway**.
-3. Open DoomBreak, tap **Open Accessibility settings**, and switch on **DoomBreak**.
-   If the toggle is greyed out, open the app's info page, tap the ⋮ menu and choose **Allow restricted settings**.
-4. Optional, for screen time: Settings → Special app access → Usage access → **DoomBreak** → allow.
+3. Open DoomBreak and tap **Allow usage access**, then **Allow display over other apps**, switching on DoomBreak
+   on each settings page.
+4. If you used an older version, turn **DoomBreak** off under Settings → Accessibility (it's no longer needed).
 
 Needs Android 7.0 or newer on a 64-bit (arm64) phone, which covers almost every phone made since 2017.
 
@@ -52,20 +57,21 @@ ANDROID_HOME=~/Library/Android/sdk npx expo run:android --variant release
 
 Then on the phone:
 
-1. Settings → Accessibility → **DoomBreak** → turn on.
-2. Optional, for screen time: Settings → Special app access → Usage access → **DoomBreak** → allow.
+1. Settings → Special app access → Usage access → **DoomBreak** → allow.
+2. Settings → Special app access → Display over other apps → **DoomBreak** → allow.
 
-If Android greys out the accessibility toggle for a sideloaded app, open the app's info page, tap the ⋮ menu and
-choose **Allow restricted settings**.
+If Android greys out either toggle for a sideloaded app, open the app's info page, tap the ⋮ menu and choose
+**Allow restricted settings**.
 
 ## Limitations
 
 - **Android only.** iOS doesn't allow this kind of monitoring.
-- Meant for sideloading. Google Play restricts apps that use accessibility services this way.
+- Meant for sideloading.
 - Apps are matched by package name ([`src/constants/apps.ts`](src/constants/apps.ts)). Regional variants
   (for example TikTok in some Asian countries) use different package names and won't be limited until added.
-- The service checks once a second. The limited app may flash on screen briefly before you're sent home.
-- Turning the accessibility service off in Android settings turns off all limits.
+- DoomBreak checks once a second. The limited app may flash on screen briefly before you're sent home.
+- Revoking either permission turns off all limits. Some phones (often Xiaomi, Huawei, some Samsung) stop
+  background services to save battery; if limits stop working, set DoomBreak's battery use to **Unrestricted**.
 
 ## Adding an app
 

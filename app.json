@@ -18,8 +18,7 @@
         "backgroundColor": "#DC143C"
       },
       "blockedPermissions": [
-        "android.permission.INTERNET",
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.INTERNET"
       ]
     },
     "plugins": [
