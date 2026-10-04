@@ -369,8 +369,9 @@ class BlockerService : Service() {
         WindowManager.LayoutParams.WRAP_CONTENT,
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+        // Not FLAG_NOT_TOUCHABLE: Android 12+ fades pass-through overlays to 80% opacity. The card swallows taps on
+        // itself instead (it can't be dismissed); touches outside it still reach the app underneath.
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-          WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
           WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
         PixelFormat.TRANSLUCENT
       ).apply { gravity = Gravity.TOP }
