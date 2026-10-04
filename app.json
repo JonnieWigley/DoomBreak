@@ -2,7 +2,7 @@
   "expo": {
     "name": "DoomBreak",
     "slug": "doombreak",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "scheme": "doombreak",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,6 +12,7 @@
     ],
     "android": {
       "package": "com.jonnie.doombreak",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png",
