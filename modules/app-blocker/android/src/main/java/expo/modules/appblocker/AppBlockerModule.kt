@@ -1,12 +1,12 @@
 package expo.modules.appblocker
 
-import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.net.Uri
 import android.provider.Settings
 import android.util.Base64
 import expo.modules.kotlin.modules.Module
@@ -18,21 +18,8 @@ class AppBlockerModule : Module() {
   private val context: Context
     get() = appContext.reactContext ?: throw IllegalStateException("No React context")
 
-  private fun isServiceEnabled(): Boolean {
-    val enabled = Settings.Secure.getString(
-      context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ) ?: return false
-    val name = "${context.packageName}/${BlockerAccessibilityService::class.java.name}"
-    return enabled.split(':').any { it.equals(name, ignoreCase = true) }
-  }
-
-  private fun hasUsageAccess(): Boolean {
-    val ops = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-    val mode = ops.checkOpNoThrow(
-      AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName
-    )
-    return mode == AppOpsManager.MODE_ALLOWED
-  }
+  private fun hasUsageAccess() = BlockerService.hasUsageAccess(context)
+  private fun canDrawOverlays() = BlockerService.canDrawOverlays(context)
 
   /**
    * Foreground time per local calendar day for the last [days] days (oldest first), from Android's usage events.
@@ -106,11 +93,12 @@ class AppBlockerModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("AppBlocker")
 
-    Function("isServiceEnabled") { isServiceEnabled() }
+    Function("canDrawOverlays") { canDrawOverlays() }
 
-    Function("openAccessibilitySettings") {
+    Function("openOverlaySettings") {
       context.startActivity(
-        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       )
     }
 
@@ -118,6 +106,7 @@ class AppBlockerModule : Module() {
       val s = BlockerState(context)
       s.enabled = enabled
       s.targets = targets.toSet()
+      BlockerService.sync(context)
     }
 
     Function("setAppLimits") { pkg: String, allowedMinutes: Double, blockMinutes: Double ->
@@ -151,9 +140,12 @@ class AppBlockerModule : Module() {
     Function("setThemeMode") { mode: String -> BlockerState(context).themeMode = mode }
 
     Function("getStatus") {
+      // Also (re)starts blocking once both permissions have been granted.
+      BlockerService.sync(context)
       val s = BlockerState(context)
       mapOf(
-        "serviceEnabled" to isServiceEnabled(),
+        "usageAccess" to hasUsageAccess(),
+        "overlay" to canDrawOverlays(),
         "enabled" to s.enabled,
         "targets" to s.targets.toList(),
         "apps" to s.targets.map {
