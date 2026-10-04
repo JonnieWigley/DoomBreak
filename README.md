@@ -43,6 +43,10 @@ open while a sideloaded app has one switched on, because that's how banking malw
    on each settings page.
 4. If you used an older version, turn **DoomBreak** off under Settings → Accessibility (it's no longer needed).
 
+**Upgrading from 0.1.0 or 0.2.0:** version 0.3.0 is signed with DoomBreak's own key instead of a shared test key, so
+Android won't install it over the old one. Uninstall DoomBreak first, then install the new APK. Your limits and
+screen-time history are reset.
+
 Needs Android 7.0 or newer on a 64-bit (arm64) phone, which covers almost every phone made since 2017.
 
 ## Build it yourself
@@ -54,6 +58,11 @@ npm install
 npx expo prebuild --platform android
 ANDROID_HOME=~/Library/Android/sdk npx expo run:android --variant release
 ```
+
+Without DoomBreak's signing key, release builds are signed with the shared debug key. That's fine for testing, but
+they won't install over an official release. The maintainer's machine sets `DOOMBREAK_STORE_FILE`,
+`DOOMBREAK_STORE_PASSWORD`, `DOOMBREAK_KEY_ALIAS` and `DOOMBREAK_KEY_PASSWORD` in `~/.gradle/gradle.properties`
+(see [`plugins/with-release-signing.js`](plugins/with-release-signing.js)).
 
 Then on the phone:
 
