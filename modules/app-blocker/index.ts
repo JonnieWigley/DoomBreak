@@ -29,8 +29,11 @@ export type DayTotal = { dayStart: number; ms: number; known: boolean };
 
 export type AppLimits = { allowedMinutes: number; blockMinutes: number };
 
-/** Extra time on chosen days of the week: every limited app's scroll time is multiplied. Days are 0 = Sunday … 6 = Saturday. */
-export type BonusSchedule = { enabled: boolean; days: number[]; multiplier: number };
+/**
+ * Extra time through the week: on each day every limited app's scroll time is multiplied by that day's multiplier.
+ * `multipliers` has 7 entries, 0 = Sunday … 6 = Saturday; 1 means no extra time that day.
+ */
+export type BonusSchedule = { enabled: boolean; multipliers: number[] };
 
 const Native = requireNativeModule('AppBlocker');
 
@@ -43,8 +46,7 @@ export const AppBlocker = {
   setAppLimits: (pkg: string, allowedMinutes: number, blockMinutes: number): void =>
     Native.setAppLimits(pkg, allowedMinutes, blockMinutes),
   getBonusSchedule: (): BonusSchedule => Native.getBonusSchedule(),
-  setBonusSchedule: ({ enabled, days, multiplier }: BonusSchedule): void =>
-    Native.setBonusSchedule(enabled, days, multiplier),
+  setBonusSchedule: ({ enabled, multipliers }: BonusSchedule): void => Native.setBonusSchedule(enabled, multipliers),
   /** The app's own icon as a base64 PNG, or null if it isn't installed. */
   getAppIcon: (pkg: string): string | null => Native.getAppIcon(pkg),
   hasUsageAccess: (): boolean => Native.hasUsageAccess(),

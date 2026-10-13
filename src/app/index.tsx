@@ -11,15 +11,16 @@ import { useStyles } from '../hooks/use-styles';
 
 // Monday first; day numbers match the native side (0 = Sunday).
 const WEEK = [
-  { day: 1, letter: 'M' },
-  { day: 2, letter: 'T' },
-  { day: 3, letter: 'W' },
-  { day: 4, letter: 'T' },
-  { day: 5, letter: 'F' },
-  { day: 6, letter: 'S' },
-  { day: 0, letter: 'S' },
+  { day: 1, name: 'Mon' },
+  { day: 2, name: 'Tue' },
+  { day: 3, name: 'Wed' },
+  { day: 4, name: 'Thu' },
+  { day: 5, name: 'Fri' },
+  { day: 6, name: 'Sat' },
+  { day: 0, name: 'Sun' },
 ];
-const MULTIPLIERS = [1.5, 2, 3];
+// 1 = no extra time that day.
+const MULTIPLIERS = [1, 1.5, 2, 3];
 
 export default function Home() {
   const styles = useStyles();
@@ -60,9 +61,9 @@ export default function Home() {
     refresh();
   };
 
-  const toggleDay = (day: number) => {
-    const days = bonus.days.includes(day) ? bonus.days.filter((d) => d !== day) : [...bonus.days, day];
-    saveBonus({ ...bonus, days });
+  const setDayMultiplier = (day: number, m: number) => {
+    const multipliers = bonus.multipliers.map((old, d) => (d === day ? m : old));
+    saveBonus({ ...bonus, multipliers });
   };
 
   const chooseTheme = (mode: ThemeMode) => {
@@ -145,32 +146,27 @@ export default function Home() {
         </View>
         {bonus.enabled && (
           <>
-            <View style={styles.segments}>
-              {WEEK.map(({ day, letter }) => {
-                const on = bonus.days.includes(day);
-                return (
-                  <Pressable
-                    key={day}
-                    style={[styles.segment, on && styles.segmentActive]}
-                    onPress={() => toggleDay(day)}>
-                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{letter}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={styles.segments}>
-              {MULTIPLIERS.map((m) => {
-                const on = bonus.multiplier === m;
-                return (
-                  <Pressable
-                    key={m}
-                    style={[styles.segment, on && styles.segmentActive]}
-                    onPress={() => saveBonus({ ...bonus, multiplier: m })}>
-                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{m}×</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {WEEK.map(({ day, name }) => (
+              <View key={day} style={styles.row}>
+                <Text style={[styles.label, styles.dayLabel]}>{name}</Text>
+                <View style={[styles.segments, styles.grow]}>
+                  {MULTIPLIERS.map((m) => {
+                    const on = bonus.multipliers[day] === m;
+                    return (
+                      <Pressable
+                        key={m}
+                        style={[styles.segment, on && styles.segmentActive]}
+                        onPress={() => setDayMultiplier(day, m)}>
+                        <Text style={[styles.segmentText, on && styles.segmentTextActive]}>
+                          {m === 1 ? 'Off' : `${m}×`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            <Text style={styles.sub}>Block time stays the same.</Text>
             {status.bonusToday && <Text style={styles.sub}>Today is an extra-time day.</Text>}
           </>
         )}

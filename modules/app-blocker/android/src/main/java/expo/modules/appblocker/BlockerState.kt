@@ -18,32 +18,28 @@ class BlockerState(context: Context) {
   fun setLimits(pkg: String, allowed: Long, block: Long) =
     prefs.edit().putLong("allowed:$pkg", allowed).putLong("block:$pkg", block).apply()
 
-  /** Extra time on chosen days: every app's scroll time is multiplied on those days. Off until switched on. */
+  /** Extra time on chosen days: every app's scroll time is multiplied by that day's multiplier. Off until switched on. */
   var bonusEnabled: Boolean
     get() = prefs.getBoolean("bonusEnabled", false)
     set(v) = prefs.edit().putBoolean("bonusEnabled", v).apply()
 
-  /** Days that get the extra time, 0 = Sunday … 6 = Saturday. */
-  var bonusDays: Set<Int>
-    get() = prefs.getStringSet("bonusDays", null)?.mapNotNull { it.toIntOrNull() }?.toSet() ?: DEFAULT_BONUS_DAYS
-    set(v) = prefs.edit().putStringSet("bonusDays", v.map { it.toString() }.toSet()).apply()
+  /** Each day's multiplier, 0 = Sunday … 6 = Saturday. 1 means no extra time that day. */
+  var bonusMultipliers: List<Float>
+    get() = (0..6).map { prefs.getFloat("bonusMultiplier:$it", DEFAULT_BONUS_MULTIPLIER) }
+    set(v) = prefs.edit().apply { v.take(7).forEachIndexed { day, m -> putFloat("bonusMultiplier:$day", m) } }.apply()
 
-  var bonusMultiplier: Float
-    get() = prefs.getFloat("bonusMultiplier", DEFAULT_BONUS_MULTIPLIER)
-    set(v) = prefs.edit().putFloat("bonusMultiplier", v).apply()
-
-  /** True if [now] falls on a day that gets extra time. */
-  fun isBonusDay(now: Long = System.currentTimeMillis()): Boolean {
-    if (!bonusEnabled) return false
+  /** The multiplier for the day [now] falls on; 1 when extra time is off. */
+  fun multiplierFor(now: Long = System.currentTimeMillis()): Float {
+    if (!bonusEnabled) return 1f
     val day = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.DAY_OF_WEEK) - 1
-    return day in bonusDays
+    return prefs.getFloat("bonusMultiplier:$day", DEFAULT_BONUS_MULTIPLIER)
   }
+
+  fun isBonusDay(now: Long = System.currentTimeMillis()): Boolean = multiplierFor(now) > 1f
 
   /** The scroll time that applies right now: the app's own limit, multiplied on extra-time days. */
-  fun effectiveAllowedFor(pkg: String, now: Long = System.currentTimeMillis()): Long {
-    val base = allowedFor(pkg)
-    return if (isBonusDay(now)) (base * bonusMultiplier).toLong() else base
-  }
+  fun effectiveAllowedFor(pkg: String, now: Long = System.currentTimeMillis()): Long =
+    (allowedFor(pkg) * multiplierFor(now)).toLong()
 
   /** "system", "light" or "dark". */
   var themeMode: String
@@ -88,7 +84,6 @@ class BlockerState(context: Context) {
   companion object {
     const val DEFAULT_ALLOWED_MS = 10 * 60_000L
     const val DEFAULT_BLOCK_MS = 15 * 60_000L
-    val DEFAULT_BONUS_DAYS = setOf(0, 6) // Sunday and Saturday
     const val DEFAULT_BONUS_MULTIPLIER = 2f
   }
 }

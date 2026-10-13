@@ -18,18 +18,11 @@ export function describe(app: AppStatus, now: number) {
   return `${fmt(Math.max(0, app.allowedMinutes * 60_000 - app.usedMs))} left`;
 }
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-/** [1, 3, 6] -> "Monday, Wednesday and Saturday", listed Monday first. */
-function listDays(days: number[]) {
-  const names = [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((d) => DAY_NAMES[d]);
-  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-}
-
 /** One line for the extra-time card. */
-export function describeBonus({ enabled, days, multiplier }: BonusSchedule) {
-  if (!enabled) return 'Get more scroll time on chosen days, like the weekend.';
-  if (days.length === 0) return 'Pick the days that get extra time.';
-  const amount = multiplier === 2 ? 'doubled' : `multiplied by ${multiplier}`;
-  return `Every app’s scroll time is ${amount} on ${listDays(days)}.`;
+export function describeBonus({ enabled, multipliers }: BonusSchedule) {
+  if (!enabled) return 'Get more scroll time on the days you choose.';
+  const on = multipliers.filter((m) => m > 1);
+  if (on.length === 0) return 'Pick the days that get extra time.';
+  if (on.length === 7 && on.every((m) => m === on[0])) return `Every day, each app’s scroll time is ${on[0]}×.`;
+  return 'Each app’s scroll time is multiplied on the days below.';
 }

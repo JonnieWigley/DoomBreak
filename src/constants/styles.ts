@@ -20,6 +20,7 @@ export const makeStyles = (c: Palette) =>
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     grow: { flex: 1 },
     label: { fontSize: 16, color: c.text },
+    dayLabel: { width: 40 },
     appName: { fontSize: 17, fontWeight: '600', color: c.text },
     chevron: { fontSize: 26, color: c.subtext },
     badge: {

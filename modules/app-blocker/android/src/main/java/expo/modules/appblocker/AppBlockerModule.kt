@@ -122,16 +122,14 @@ class AppBlockerModule : Module() {
       val s = BlockerState(context)
       mapOf(
         "enabled" to s.bonusEnabled,
-        "days" to s.bonusDays.sorted(),
-        "multiplier" to s.bonusMultiplier.toDouble()
+        "multipliers" to s.bonusMultipliers.map { it.toDouble() }
       )
     }
 
-    Function("setBonusSchedule") { enabled: Boolean, days: List<Int>, multiplier: Double ->
+    Function("setBonusSchedule") { enabled: Boolean, multipliers: List<Double> ->
       val s = BlockerState(context)
       s.bonusEnabled = enabled
-      s.bonusDays = days.filter { it in 0..6 }.toSet()
-      s.bonusMultiplier = multiplier.toFloat().coerceIn(1f, 5f)
+      s.bonusMultipliers = multipliers.map { it.toFloat().coerceIn(1f, 5f) }
     }
 
     Function("getAppIcon") { pkg: String -> iconOf(pkg) }
