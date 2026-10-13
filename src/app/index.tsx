@@ -3,11 +3,23 @@ import { useCallback, useEffect, useState } from 'react';
 import { Appearance, AppState, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppBlocker, type BlockerStatus, type ThemeMode } from '../../modules/app-blocker';
+import { AppBlocker, type BlockerStatus, type BonusSchedule, type ThemeMode } from '../../modules/app-blocker';
 import { AppIcon } from '../components/app-icon';
 import { SOCIAL_APPS } from '../constants/apps';
-import { describe, isBlocked } from '../constants/format';
+import { describe, describeBonus, isBlocked } from '../constants/format';
 import { useStyles } from '../hooks/use-styles';
+
+// Monday first; day numbers match the native side (0 = Sunday).
+const WEEK = [
+  { day: 1, letter: 'M' },
+  { day: 2, letter: 'T' },
+  { day: 3, letter: 'W' },
+  { day: 4, letter: 'T' },
+  { day: 5, letter: 'F' },
+  { day: 6, letter: 'S' },
+  { day: 0, letter: 'S' },
+];
+const MULTIPLIERS = [1.5, 2, 3];
 
 export default function Home() {
   const styles = useStyles();
@@ -15,6 +27,7 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<BlockerStatus | null>(null);
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => AppBlocker.getThemeMode());
+  const [bonus, setBonusState] = useState<BonusSchedule>(() => AppBlocker.getBonusSchedule());
 
   const refresh = useCallback(() => setStatus(AppBlocker.getStatus()), []);
 
@@ -39,6 +52,17 @@ export default function Home() {
     const targets = on ? [...status.targets, pkg] : status.targets.filter((p) => p !== pkg);
     AppBlocker.configure(status.enabled, targets);
     refresh();
+  };
+
+  const saveBonus = (next: BonusSchedule) => {
+    AppBlocker.setBonusSchedule(next);
+    setBonusState(next);
+    refresh();
+  };
+
+  const toggleDay = (day: number) => {
+    const days = bonus.days.includes(day) ? bonus.days.filter((d) => d !== day) : [...bonus.days, day];
+    saveBonus({ ...bonus, days });
   };
 
   const chooseTheme = (mode: ThemeMode) => {
@@ -110,6 +134,47 @@ export default function Home() {
         }}>
         <Text style={styles.buttonText}>Reset all timers</Text>
       </Pressable>
+
+      <View style={styles.card}>
+        <View style={styles.row}>
+          <View style={styles.grow}>
+            <Text style={styles.heading}>Extra time</Text>
+            <Text style={styles.sub}>{describeBonus(bonus)}</Text>
+          </View>
+          <Switch value={bonus.enabled} onValueChange={(enabled) => saveBonus({ ...bonus, enabled })} />
+        </View>
+        {bonus.enabled && (
+          <>
+            <View style={styles.segments}>
+              {WEEK.map(({ day, letter }) => {
+                const on = bonus.days.includes(day);
+                return (
+                  <Pressable
+                    key={day}
+                    style={[styles.segment, on && styles.segmentActive]}
+                    onPress={() => toggleDay(day)}>
+                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{letter}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.segments}>
+              {MULTIPLIERS.map((m) => {
+                const on = bonus.multiplier === m;
+                return (
+                  <Pressable
+                    key={m}
+                    style={[styles.segment, on && styles.segmentActive]}
+                    onPress={() => saveBonus({ ...bonus, multiplier: m })}>
+                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{m}×</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {status.bonusToday && <Text style={styles.sub}>Today is an extra-time day.</Text>}
+          </>
+        )}
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.heading}>Appearance</Text>

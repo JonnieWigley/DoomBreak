@@ -137,7 +137,8 @@ class BlockerService : Service() {
     state.setUsedMs(app, used)
     lastTickAt = elapsed
 
-    val allowed = state.allowedFor(app)
+    // On extra-time days this is already multiplied, so the warning and the block both move with it.
+    val allowed = state.effectiveAllowedFor(app)
     if (used >= allowed) {
       enforce(app)
     } else if (used >= allowed * 0.8) {
@@ -210,7 +211,7 @@ class BlockerService : Service() {
 
   private fun enforce(app: String) {
     stopCounting()
-    state.setUsedMs(app, state.allowedFor(app))
+    state.setUsedMs(app, state.effectiveAllowedFor(app))
     val until = System.currentTimeMillis() + state.blockFor(app)
     state.setBlockedUntil(app, until)
     goHome()

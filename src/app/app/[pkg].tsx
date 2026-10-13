@@ -12,6 +12,8 @@ import { describe, fmtDuration, isBlocked } from '../../constants/format';
 import { useStyles } from '../../hooks/use-styles';
 
 const clamp = (n: number) => Math.min(120, Math.max(1, Math.round(n)));
+// 1.5x of an odd limit lands on a half minute, which is worth showing.
+const fmtMinutes = (n: number) => String(Math.round(n * 10) / 10);
 
 export default function AppRule() {
   const styles = useStyles();
@@ -126,6 +128,11 @@ export default function AppRule() {
           After {Math.round(limits.allowedMinutes)} min of {app.name}, it closes and stays blocked for{' '}
           {Math.round(limits.blockMinutes)} min. You get a warning at 80% of your time.
         </Text>
+        {status.bonusToday && state && (
+          <Text style={styles.sub}>
+            Today is an extra-time day, so you get {fmtMinutes(state.allowedMinutes)} min before it closes.
+          </Text>
+        )}
       </View>
 
       <Pressable

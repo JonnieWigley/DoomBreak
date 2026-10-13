@@ -6,6 +6,7 @@ export type AppStatus = {
   package: string;
   usedMs: number;
   blockedUntil: number;
+  /** Scroll time that applies today, so already multiplied on an extra-time day. */
   allowedMinutes: number;
   blockMinutes: number;
 };
@@ -17,6 +18,8 @@ export type BlockerStatus = {
   overlay: boolean;
   enabled: boolean;
   targets: string[];
+  /** Today is one of the extra-time days (and extra time is switched on). */
+  bonusToday: boolean;
   apps: AppStatus[];
   now: number;
 };
@@ -25,6 +28,9 @@ export type BlockerStatus = {
 export type DayTotal = { dayStart: number; ms: number; known: boolean };
 
 export type AppLimits = { allowedMinutes: number; blockMinutes: number };
+
+/** Extra time on chosen days of the week: every limited app's scroll time is multiplied. Days are 0 = Sunday … 6 = Saturday. */
+export type BonusSchedule = { enabled: boolean; days: number[]; multiplier: number };
 
 const Native = requireNativeModule('AppBlocker');
 
@@ -36,6 +42,9 @@ export const AppBlocker = {
   getAppLimits: (pkg: string): AppLimits => Native.getAppLimits(pkg),
   setAppLimits: (pkg: string, allowedMinutes: number, blockMinutes: number): void =>
     Native.setAppLimits(pkg, allowedMinutes, blockMinutes),
+  getBonusSchedule: (): BonusSchedule => Native.getBonusSchedule(),
+  setBonusSchedule: ({ enabled, days, multiplier }: BonusSchedule): void =>
+    Native.setBonusSchedule(enabled, days, multiplier),
   /** The app's own icon as a base64 PNG, or null if it isn't installed. */
   getAppIcon: (pkg: string): string | null => Native.getAppIcon(pkg),
   hasUsageAccess: (): boolean => Native.hasUsageAccess(),

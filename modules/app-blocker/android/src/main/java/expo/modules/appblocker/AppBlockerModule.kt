@@ -118,6 +118,22 @@ class AppBlockerModule : Module() {
       mapOf("allowedMinutes" to s.allowedFor(pkg) / 60_000.0, "blockMinutes" to s.blockFor(pkg) / 60_000.0)
     }
 
+    Function("getBonusSchedule") {
+      val s = BlockerState(context)
+      mapOf(
+        "enabled" to s.bonusEnabled,
+        "days" to s.bonusDays.sorted(),
+        "multiplier" to s.bonusMultiplier.toDouble()
+      )
+    }
+
+    Function("setBonusSchedule") { enabled: Boolean, days: List<Int>, multiplier: Double ->
+      val s = BlockerState(context)
+      s.bonusEnabled = enabled
+      s.bonusDays = days.filter { it in 0..6 }.toSet()
+      s.bonusMultiplier = multiplier.toFloat().coerceIn(1f, 5f)
+    }
+
     Function("getAppIcon") { pkg: String -> iconOf(pkg) }
 
     Function("hasUsageAccess") { hasUsageAccess() }
@@ -143,21 +159,23 @@ class AppBlockerModule : Module() {
       // Also (re)starts blocking once both permissions have been granted.
       BlockerService.sync(context)
       val s = BlockerState(context)
+      val now = System.currentTimeMillis()
       mapOf(
         "usageAccess" to hasUsageAccess(),
         "overlay" to canDrawOverlays(),
         "enabled" to s.enabled,
         "targets" to s.targets.toList(),
+        "bonusToday" to s.isBonusDay(now),
         "apps" to s.targets.map {
           mapOf(
             "package" to it,
             "usedMs" to s.usedMs(it),
             "blockedUntil" to s.blockedUntil(it),
-            "allowedMinutes" to s.allowedFor(it) / 60_000.0,
+            "allowedMinutes" to s.effectiveAllowedFor(it, now) / 60_000.0,
             "blockMinutes" to s.blockFor(it) / 60_000.0
           )
         },
-        "now" to System.currentTimeMillis()
+        "now" to now
       )
     }
 
