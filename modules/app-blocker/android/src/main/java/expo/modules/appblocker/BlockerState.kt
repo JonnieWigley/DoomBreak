@@ -74,9 +74,26 @@ class BlockerState(context: Context) {
     return cal.timeInMillis
   }
 
-  /** In focus mode, when the current focus window ends; 0 when not focusing. */
+  /** When a "Focus now" session started from the app ends (ms); 0 when none is running. */
+  var focusNowUntil: Long
+    get() = prefs.getLong("focusNowUntil", 0L)
+    set(v) = prefs.edit().putLong("focusNowUntil", v).apply()
+
+  /** The running "Focus now" session's end, or 0; an ended session is cleared. */
+  fun activeFocusNowUntil(now: Long = System.currentTimeMillis()): Long {
+    val until = focusNowUntil
+    if (until == 0L) return 0L
+    if (until > now) return until
+    focusNowUntil = 0L
+    return 0L
+  }
+
+  /**
+   * When focusing ends: the later of a "Focus now" session and the schedule's window in focus mode; 0 when not
+   * focusing.
+   */
   fun focusUntil(now: Long = System.currentTimeMillis()): Long =
-    if (scheduleMode == "focus") scheduleEndsAt(now) else 0L
+    maxOf(activeFocusNowUntil(now), if (scheduleMode == "focus") scheduleEndsAt(now) else 0L)
 
   /** The scroll time multiplier in force at [now]: the schedule's during an extra-time window, otherwise 1. */
   fun multiplierFor(now: Long = System.currentTimeMillis()): Float =

@@ -32,7 +32,8 @@
           "backgroundColor": "#DC143C"
         }
       ],
-      "./plugins/with-release-signing"
+      "./plugins/with-release-signing",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

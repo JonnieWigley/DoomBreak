@@ -107,7 +107,7 @@ class BlockerService : Service() {
 
     updateFront(now)
     val pm = getSystemService(POWER_SERVICE) as PowerManager
-    Log.d(TAG, "check front=$front counting=$countingPkg")
+    Log.d(TAG, "check front=$front counting=$countingPkg focusUntil=${state.focusUntil(now)}")
 
     if (!pm.isInteractive) {
       stopCounting()

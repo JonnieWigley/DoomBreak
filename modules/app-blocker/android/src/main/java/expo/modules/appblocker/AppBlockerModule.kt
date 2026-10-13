@@ -177,6 +177,7 @@ class AppBlockerModule : Module() {
         "targets" to s.targets.toList(),
         "scheduleActive" to s.isScheduleActive(now),
         "focusUntil" to s.focusUntil(now),
+        "focusNowUntil" to s.activeFocusNowUntil(now),
         "apps" to s.targets.map {
           mapOf(
             "package" to it,
@@ -189,6 +190,12 @@ class AppBlockerModule : Module() {
         "now" to now
       )
     }
+
+    Function("startFocus") { minutes: Int ->
+      BlockerState(context).focusNowUntil = System.currentTimeMillis() + minutes.coerceIn(1, 720) * 60_000L
+    }
+
+    Function("stopFocus") { BlockerState(context).focusNowUntil = 0L }
 
     Function("resetSession") {
       val s = BlockerState(context)

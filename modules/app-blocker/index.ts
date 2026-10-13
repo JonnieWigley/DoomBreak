@@ -20,8 +20,10 @@ export type BlockerStatus = {
   targets: string[];
   /** The schedule is changing scroll time right now. */
   scheduleActive: boolean;
-  /** While a focus window is on, when it ends (ms); otherwise 0. */
+  /** While focusing (a "Focus now" session or the schedule in focus mode), when it ends (ms); otherwise 0. */
   focusUntil: number;
+  /** While a "Focus now" session is running, when it ends (ms); otherwise 0. */
+  focusNowUntil: number;
   apps: AppStatus[];
   now: number;
 };
@@ -69,6 +71,9 @@ export const AppBlocker = {
   getStatus: (): BlockerStatus => Native.getStatus(),
   resetApp: (pkg: string): void => Native.resetApp(pkg),
   resetSession: (): void => Native.resetSession(),
+  /** Blocks every limited app for [minutes] from now, with or without a schedule. */
+  startFocus: (minutes: number): void => Native.startFocus(minutes),
+  stopFocus: (): void => Native.stopFocus(),
   getThemeMode: (): ThemeMode => Native.getThemeMode(),
   setThemeMode: (mode: ThemeMode): void => Native.setThemeMode(mode),
 };

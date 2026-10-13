@@ -1,44 +1,27 @@
-import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { Pressable, Text } from 'react-native';
 
 import { fmtClock } from '../constants/format';
 import { useStyles } from '../hooks/use-styles';
 
-// Every half hour, in minutes after midnight.
-const TIMES = Array.from({ length: 48 }, (_, i) => i * 30);
-
-/** A box showing a time; tapping it opens a list of half-hour times to pick from. */
+/** A box showing a time; tapping it opens Android's clock dial to pick a new one. Cancel leaves it unchanged. */
 export function TimeSelect({ value, onChange }: { value: number; onChange: (minutes: number) => void }) {
   const styles = useStyles();
-  const [open, setOpen] = useState(false);
+  const open = () => {
+    const date = new Date();
+    date.setHours(Math.floor(value / 60), value % 60, 0, 0);
+    DateTimePickerAndroid.open({
+      value: date,
+      mode: 'time',
+      display: 'clock',
+      is24Hour: false,
+      onValueChange: (_event, picked) => onChange(picked.getHours() * 60 + picked.getMinutes()),
+    });
+  };
   return (
-    <>
-      <Pressable style={[styles.input, styles.grow]} onPress={() => setOpen(true)}>
-        <Text style={styles.label}>{fmtClock(value)}</Text>
-        <Text style={styles.sub}>▾</Text>
-      </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <View style={[styles.card, styles.sheet]}>
-            <ScrollView>
-              {TIMES.map((t) => {
-                const on = t === value;
-                return (
-                  <Pressable
-                    key={t}
-                    style={[styles.sheetItem, on && styles.segmentActive]}
-                    onPress={() => {
-                      onChange(t);
-                      setOpen(false);
-                    }}>
-                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{fmtClock(t)}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
-    </>
+    <Pressable style={[styles.input, styles.grow]} onPress={open}>
+      <Text style={styles.label}>{fmtClock(value)}</Text>
+      <Text style={styles.sub}>▾</Text>
+    </Pressable>
   );
 }
