@@ -11,16 +11,15 @@ import { useStyles } from '../hooks/use-styles';
 
 // Monday first; day numbers match the native side (0 = Sunday).
 const WEEK = [
-  { day: 1, name: 'Mon' },
-  { day: 2, name: 'Tue' },
-  { day: 3, name: 'Wed' },
-  { day: 4, name: 'Thu' },
-  { day: 5, name: 'Fri' },
-  { day: 6, name: 'Sat' },
-  { day: 0, name: 'Sun' },
+  { day: 1, letter: 'M' },
+  { day: 2, letter: 'T' },
+  { day: 3, letter: 'W' },
+  { day: 4, letter: 'T' },
+  { day: 5, letter: 'F' },
+  { day: 6, letter: 'S' },
+  { day: 0, letter: 'S' },
 ];
-// 1 = no extra time that day.
-const MULTIPLIERS = [1, 1.5, 2, 3];
+const AMOUNTS = [1.5, 2, 3];
 
 export default function Home() {
   const styles = useStyles();
@@ -61,9 +60,16 @@ export default function Home() {
     refresh();
   };
 
-  const setDayMultiplier = (day: number, m: number) => {
-    const multipliers = bonus.multipliers.map((old, d) => (d === day ? m : old));
+  // The card offers one amount for every chosen day; a day is chosen when its multiplier is above 1.
+  const amount = bonus.multipliers.find((m) => m > 1) ?? 2;
+
+  const toggleDay = (day: number) => {
+    const multipliers = bonus.multipliers.map((m, d) => (d !== day ? m : m > 1 ? 1 : amount));
     saveBonus({ ...bonus, multipliers });
+  };
+
+  const chooseAmount = (next: number) => {
+    saveBonus({ ...bonus, multipliers: bonus.multipliers.map((m) => (m > 1 ? next : 1)) });
   };
 
   const chooseTheme = (mode: ThemeMode) => {
@@ -146,27 +152,34 @@ export default function Home() {
         </View>
         {bonus.enabled && (
           <>
-            {WEEK.map(({ day, name }) => (
-              <View key={day} style={styles.row}>
-                <Text style={[styles.label, styles.dayLabel]}>{name}</Text>
-                <View style={[styles.segments, styles.grow]}>
-                  {MULTIPLIERS.map((m) => {
-                    const on = bonus.multipliers[day] === m;
-                    return (
-                      <Pressable
-                        key={m}
-                        style={[styles.segment, on && styles.segmentActive]}
-                        onPress={() => setDayMultiplier(day, m)}>
-                        <Text style={[styles.segmentText, on && styles.segmentTextActive]}>
-                          {m === 1 ? 'Off' : `${m}×`}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-            <Text style={styles.sub}>Block time stays the same.</Text>
+            <Text style={styles.label}>Which days?</Text>
+            <View style={styles.dayChips}>
+              {WEEK.map(({ day, letter }) => {
+                const on = bonus.multipliers[day] > 1;
+                return (
+                  <Pressable
+                    key={day}
+                    style={[styles.dayChip, on && styles.dayChipActive]}
+                    onPress={() => toggleDay(day)}>
+                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{letter}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.label}>How much scroll time?</Text>
+            <View style={styles.segments}>
+              {AMOUNTS.map((m) => {
+                const on = amount === m;
+                return (
+                  <Pressable key={m} style={[styles.segment, on && styles.segmentActive]} onPress={() => chooseAmount(m)}>
+                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{m}×</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.sub}>
+              For example, a 10 min limit becomes {10 * amount} min. Block time stays the same.
+            </Text>
             {status.bonusToday && <Text style={styles.sub}>Today is an extra-time day.</Text>}
           </>
         )}

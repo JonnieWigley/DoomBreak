@@ -25,14 +25,14 @@ class BlockerState(context: Context) {
 
   /** Each day's multiplier, 0 = Sunday … 6 = Saturday. 1 means no extra time that day. */
   var bonusMultipliers: List<Float>
-    get() = (0..6).map { prefs.getFloat("bonusMultiplier:$it", DEFAULT_BONUS_MULTIPLIER) }
+    get() = (0..6).map { prefs.getFloat("bonusMultiplier:$it", defaultMultiplier(it)) }
     set(v) = prefs.edit().apply { v.take(7).forEachIndexed { day, m -> putFloat("bonusMultiplier:$day", m) } }.apply()
 
   /** The multiplier for the day [now] falls on; 1 when extra time is off. */
   fun multiplierFor(now: Long = System.currentTimeMillis()): Float {
     if (!bonusEnabled) return 1f
     val day = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.DAY_OF_WEEK) - 1
-    return prefs.getFloat("bonusMultiplier:$day", DEFAULT_BONUS_MULTIPLIER)
+    return prefs.getFloat("bonusMultiplier:$day", defaultMultiplier(day))
   }
 
   fun isBonusDay(now: Long = System.currentTimeMillis()): Boolean = multiplierFor(now) > 1f
@@ -84,6 +84,7 @@ class BlockerState(context: Context) {
   companion object {
     const val DEFAULT_ALLOWED_MS = 10 * 60_000L
     const val DEFAULT_BLOCK_MS = 15 * 60_000L
-    const val DEFAULT_BONUS_MULTIPLIER = 2f
+    /** Until changed, Saturday and Sunday get 2x and weekdays get none. */
+    fun defaultMultiplier(day: Int): Float = if (day == 0 || day == 6) 2f else 1f
   }
 }
