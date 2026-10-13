@@ -6,7 +6,7 @@ export type AppStatus = {
   package: string;
   usedMs: number;
   blockedUntil: number;
-  /** Scroll time that applies today, so already multiplied on an extra-time day. */
+  /** Scroll time that applies right now, so already multiplied while the schedule is on. */
   allowedMinutes: number;
   blockMinutes: number;
 };
@@ -18,8 +18,10 @@ export type BlockerStatus = {
   overlay: boolean;
   enabled: boolean;
   targets: string[];
-  /** Today is one of the extra-time days (and extra time is switched on). */
-  bonusToday: boolean;
+  /** The schedule is changing scroll time right now. */
+  scheduleActive: boolean;
+  /** While a focus window is on, when it ends (ms); otherwise 0. */
+  focusUntil: number;
   apps: AppStatus[];
   now: number;
 };
@@ -29,11 +31,21 @@ export type DayTotal = { dayStart: number; ms: number; known: boolean };
 
 export type AppLimits = { allowedMinutes: number; blockMinutes: number };
 
+export type ScheduleMode = 'extra' | 'focus';
+
 /**
- * Extra time through the week: on each day every limited app's scroll time is multiplied by that day's multiplier.
- * `multipliers` has 7 entries, 0 = Sunday … 6 = Saturday; 1 means no extra time that day.
+ * Applies on chosen days (0 = Sunday … 6 = Saturday), all day or between two times (minutes after midnight; an end
+ * before the start runs past midnight). "extra" multiplies every limited app's scroll time; "focus" blocks them.
  */
-export type BonusSchedule = { enabled: boolean; multipliers: number[] };
+export type Schedule = {
+  enabled: boolean;
+  mode: ScheduleMode;
+  days: number[];
+  multiplier: number;
+  allDay: boolean;
+  startMinutes: number;
+  endMinutes: number;
+};
 
 const Native = requireNativeModule('AppBlocker');
 
@@ -45,8 +57,9 @@ export const AppBlocker = {
   getAppLimits: (pkg: string): AppLimits => Native.getAppLimits(pkg),
   setAppLimits: (pkg: string, allowedMinutes: number, blockMinutes: number): void =>
     Native.setAppLimits(pkg, allowedMinutes, blockMinutes),
-  getBonusSchedule: (): BonusSchedule => Native.getBonusSchedule(),
-  setBonusSchedule: ({ enabled, multipliers }: BonusSchedule): void => Native.setBonusSchedule(enabled, multipliers),
+  getSchedule: (): Schedule => Native.getSchedule(),
+  setSchedule: (s: Schedule): void =>
+    Native.setSchedule(s.enabled, s.mode, s.days, s.multiplier, s.allDay, s.startMinutes, s.endMinutes),
   /** The app's own icon as a base64 PNG, or null if it isn't installed. */
   getAppIcon: (pkg: string): string | null => Native.getAppIcon(pkg),
   hasUsageAccess: (): boolean => Native.hasUsageAccess(),

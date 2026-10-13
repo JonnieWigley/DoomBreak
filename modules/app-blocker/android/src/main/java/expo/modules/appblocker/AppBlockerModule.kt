@@ -118,18 +118,30 @@ class AppBlockerModule : Module() {
       mapOf("allowedMinutes" to s.allowedFor(pkg) / 60_000.0, "blockMinutes" to s.blockFor(pkg) / 60_000.0)
     }
 
-    Function("getBonusSchedule") {
+    Function("getSchedule") {
       val s = BlockerState(context)
       mapOf(
-        "enabled" to s.bonusEnabled,
-        "multipliers" to s.bonusMultipliers.map { it.toDouble() }
+        "enabled" to s.scheduleEnabled,
+        "mode" to s.scheduleMode,
+        "days" to s.scheduleDays.sorted(),
+        "multiplier" to s.scheduleMultiplier.toDouble(),
+        "allDay" to s.scheduleAllDay,
+        "startMinutes" to s.scheduleStart,
+        "endMinutes" to s.scheduleEnd
       )
     }
 
-    Function("setBonusSchedule") { enabled: Boolean, multipliers: List<Double> ->
+    Function("setSchedule") {
+        enabled: Boolean, mode: String, days: List<Int>, multiplier: Double, allDay: Boolean, startMinutes: Int,
+        endMinutes: Int ->
       val s = BlockerState(context)
-      s.bonusEnabled = enabled
-      s.bonusMultipliers = multipliers.map { it.toFloat().coerceIn(1f, 5f) }
+      s.scheduleEnabled = enabled
+      s.scheduleMode = if (mode == "focus") "focus" else "extra"
+      s.scheduleDays = days.filter { it in 0..6 }.toSet()
+      s.scheduleMultiplier = multiplier.toFloat().coerceIn(0.25f, 5f)
+      s.scheduleAllDay = allDay
+      s.scheduleStart = startMinutes.coerceIn(0, 24 * 60 - 1)
+      s.scheduleEnd = endMinutes.coerceIn(0, 24 * 60 - 1)
     }
 
     Function("getAppIcon") { pkg: String -> iconOf(pkg) }
@@ -163,7 +175,8 @@ class AppBlockerModule : Module() {
         "overlay" to canDrawOverlays(),
         "enabled" to s.enabled,
         "targets" to s.targets.toList(),
-        "bonusToday" to s.isBonusDay(now),
+        "scheduleActive" to s.isScheduleActive(now),
+        "focusUntil" to s.focusUntil(now),
         "apps" to s.targets.map {
           mapOf(
             "package" to it,

@@ -3,10 +3,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { Appearance, AppState, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppBlocker, type BlockerStatus, type BonusSchedule, type ThemeMode } from '../../modules/app-blocker';
+import {
+  AppBlocker,
+  type BlockerStatus,
+  type Schedule,
+  type ScheduleMode,
+  type ThemeMode,
+} from '../../modules/app-blocker';
 import { AppIcon } from '../components/app-icon';
+import { TimeSelect } from '../components/time-select';
 import { SOCIAL_APPS } from '../constants/apps';
-import { describe, describeBonus, isBlocked } from '../constants/format';
+import { describe, describeSchedule, isBlocked } from '../constants/format';
 import { useStyles } from '../hooks/use-styles';
 
 // Monday first; day numbers match the native side (0 = Sunday).
@@ -20,6 +27,10 @@ const WEEK = [
   { day: 0, letter: 'S' },
 ];
 const AMOUNTS = [1.5, 2, 3];
+const MODES: { mode: ScheduleMode; label: string }[] = [
+  { mode: 'focus', label: 'Focus' },
+  { mode: 'extra', label: 'Extra time' },
+];
 
 export default function Home() {
   const styles = useStyles();
@@ -27,7 +38,7 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<BlockerStatus | null>(null);
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => AppBlocker.getThemeMode());
-  const [bonus, setBonusState] = useState<BonusSchedule>(() => AppBlocker.getBonusSchedule());
+  const [schedule, setScheduleState] = useState<Schedule>(() => AppBlocker.getSchedule());
 
   const refresh = useCallback(() => setStatus(AppBlocker.getStatus()), []);
 
@@ -54,23 +65,17 @@ export default function Home() {
     refresh();
   };
 
-  const saveBonus = (next: BonusSchedule) => {
-    AppBlocker.setBonusSchedule(next);
-    setBonusState(next);
+  const saveSchedule = (changes: Partial<Schedule>) => {
+    const next = { ...schedule, ...changes };
+    AppBlocker.setSchedule(next);
+    setScheduleState(next);
     refresh();
   };
 
-  // The card offers one amount for every chosen day; a day is chosen when its multiplier is above 1.
-  const amount = bonus.multipliers.find((m) => m > 1) ?? 2;
-
-  const toggleDay = (day: number) => {
-    const multipliers = bonus.multipliers.map((m, d) => (d !== day ? m : m > 1 ? 1 : amount));
-    saveBonus({ ...bonus, multipliers });
-  };
-
-  const chooseAmount = (next: number) => {
-    saveBonus({ ...bonus, multipliers: bonus.multipliers.map((m) => (m > 1 ? next : 1)) });
-  };
+  const toggleDay = (day: number) =>
+    saveSchedule({
+      days: schedule.days.includes(day) ? schedule.days.filter((d) => d !== day) : [...schedule.days, day],
+    });
 
   const chooseTheme = (mode: ThemeMode) => {
     AppBlocker.setThemeMode(mode);
@@ -123,8 +128,8 @@ export default function Home() {
             <AppIcon pkg={app.package} name={app.name} logo={app.logo} />
             <View style={styles.grow}>
               <Text style={styles.appName}>{app.name}</Text>
-              <Text style={[styles.sub, state && isBlocked(state, status.now) && styles.blocked]}>
-                {state ? describe(state, status.now) : 'Not limited'}
+              <Text style={[styles.sub, state && isBlocked(state, status.now, status.focusUntil) && styles.blocked]}>
+                {state ? describe(state, status.now, status.focusUntil) : 'Not limited'}
               </Text>
             </View>
             <Switch value={!!state} onValueChange={(v) => toggleApp(app.package, v)} />
@@ -145,17 +150,29 @@ export default function Home() {
       <View style={styles.card}>
         <View style={styles.row}>
           <View style={styles.grow}>
-            <Text style={styles.heading}>Extra time</Text>
-            <Text style={styles.sub}>{describeBonus(bonus)}</Text>
+            <Text style={styles.heading}>Schedule</Text>
+            <Text style={styles.sub}>{describeSchedule(schedule)}</Text>
           </View>
-          <Switch value={bonus.enabled} onValueChange={(enabled) => saveBonus({ ...bonus, enabled })} />
+          <Switch value={schedule.enabled} onValueChange={(enabled) => saveSchedule({ enabled })} />
         </View>
-        {bonus.enabled && (
+        {schedule.enabled && (
           <>
-            <Text style={styles.label}>Which days?</Text>
+            <View style={styles.segments}>
+              {MODES.map(({ mode, label }) => {
+                const on = schedule.mode === mode;
+                return (
+                  <Pressable
+                    key={mode}
+                    style={[styles.segment, on && styles.segmentActive]}
+                    onPress={() => saveSchedule({ mode })}>
+                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <View style={styles.dayChips}>
               {WEEK.map(({ day, letter }) => {
-                const on = bonus.multipliers[day] > 1;
+                const on = schedule.days.includes(day);
                 return (
                   <Pressable
                     key={day}
@@ -166,21 +183,51 @@ export default function Home() {
                 );
               })}
             </View>
-            <Text style={styles.label}>How much scroll time?</Text>
             <View style={styles.segments}>
-              {AMOUNTS.map((m) => {
-                const on = amount === m;
+              {[true, false].map((allDay) => {
+                const on = schedule.allDay === allDay;
                 return (
-                  <Pressable key={m} style={[styles.segment, on && styles.segmentActive]} onPress={() => chooseAmount(m)}>
-                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{m}×</Text>
+                  <Pressable
+                    key={String(allDay)}
+                    style={[styles.segment, on && styles.segmentActive]}
+                    onPress={() => saveSchedule({ allDay })}>
+                    <Text style={[styles.segmentText, on && styles.segmentTextActive]}>
+                      {allDay ? 'All day' : 'Set times'}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
-            <Text style={styles.sub}>
-              For example, a 10 min limit becomes {10 * amount} min. Block time stays the same.
-            </Text>
-            {status.bonusToday && <Text style={styles.sub}>Today is an extra-time day.</Text>}
+            {!schedule.allDay && (
+              <View style={styles.row}>
+                <TimeSelect value={schedule.startMinutes} onChange={(startMinutes) => saveSchedule({ startMinutes })} />
+                <Text style={styles.sub}>to</Text>
+                <TimeSelect value={schedule.endMinutes} onChange={(endMinutes) => saveSchedule({ endMinutes })} />
+              </View>
+            )}
+            {schedule.mode === 'extra' ? (
+              <>
+                <View style={styles.segments}>
+                  {AMOUNTS.map((m) => {
+                    const on = schedule.multiplier === m;
+                    return (
+                      <Pressable
+                        key={m}
+                        style={[styles.segment, on && styles.segmentActive]}
+                        onPress={() => saveSchedule({ multiplier: m })}>
+                        <Text style={[styles.segmentText, on && styles.segmentTextActive]}>{m}×</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.sub}>
+                  A 10 min limit becomes {10 * schedule.multiplier} min. Block time stays the same.
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.sub}>Your limited apps stay blocked until the schedule ends.</Text>
+            )}
+            {status.scheduleActive && <Text style={styles.sub}>Your schedule is on right now.</Text>}
           </>
         )}
       </View>

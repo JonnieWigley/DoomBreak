@@ -119,6 +119,15 @@ class BlockerService : Service() {
       return
     }
 
+    // A focus window blocks every limited app until it ends, whatever time is left.
+    val focusUntil = state.focusUntil(now)
+    if (focusUntil != 0L) {
+      stopCounting()
+      if (bannerKind != Kind.BLOCKED || bannerApp != app) showBlocked(app, focusUntil, focus = true)
+      goHome()
+      return
+    }
+
     val blockedUntil = state.blockedUntil(app)
     if (now < blockedUntil) {
       stopCounting()
@@ -264,9 +273,10 @@ class BlockerService : Service() {
     }
   }
 
-  private fun showBlocked(app: String, until: Long) {
+  private fun showBlocked(app: String, until: Long, focus: Boolean = false) {
     val left = (until - System.currentTimeMillis() + 999) / 1000
-    showCard(Kind.BLOCKED, app, "${label(app)} is on a break", "Available again in ${clock(left)}", null)
+    val title = if (focus) "${label(app)} is blocked while you focus" else "${label(app)} is on a break"
+    showCard(Kind.BLOCKED, app, title, "Available again in ${clock(left)}", null)
     bannerUntil = until
     handler.postDelayed(hideBanner, 6000) // over the home screen, so a few seconds is enough
   }

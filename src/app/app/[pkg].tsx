@@ -81,8 +81,8 @@ export default function AppRule() {
         <AppIcon pkg={app.package} name={app.name} logo={app.logo} size={52} />
         <View style={styles.grow}>
           <Text style={styles.appName}>{app.name}</Text>
-          <Text style={[styles.sub, state && isBlocked(state, status.now) && styles.blocked]}>
-            {state ? describe(state, status.now) : 'Not limited'}
+          <Text style={[styles.sub, state && isBlocked(state, status.now, status.focusUntil) && styles.blocked]}>
+            {state ? describe(state, status.now, status.focusUntil) : 'Not limited'}
           </Text>
         </View>
         <Switch value={!!state} onValueChange={toggle} />
@@ -128,9 +128,9 @@ export default function AppRule() {
           After {Math.round(limits.allowedMinutes)} min of {app.name}, it closes and stays blocked for{' '}
           {Math.round(limits.blockMinutes)} min. You get a warning at 80% of your time.
         </Text>
-        {status.bonusToday && state && (
+        {status.scheduleActive && state && status.focusUntil === 0 && (
           <Text style={styles.sub}>
-            Today is an extra-time day, so you get {fmtMinutes(state.allowedMinutes)} min before it closes.
+            Your schedule is on, so you get {fmtMinutes(state.allowedMinutes)} min before it closes.
           </Text>
         )}
       </View>

@@ -18,26 +18,73 @@ class BlockerState(context: Context) {
   fun setLimits(pkg: String, allowed: Long, block: Long) =
     prefs.edit().putLong("allowed:$pkg", allowed).putLong("block:$pkg", block).apply()
 
-  /** Extra time on chosen days: every app's scroll time is multiplied by that day's multiplier. Off until switched on. */
-  var bonusEnabled: Boolean
-    get() = prefs.getBoolean("bonusEnabled", false)
-    set(v) = prefs.edit().putBoolean("bonusEnabled", v).apply()
+  /**
+   * A schedule for chosen days, all day or between two times. In "extra" mode every limited app's scroll time is
+   * multiplied (e.g. 2x at the weekend); in "focus" mode limited apps are blocked outright (e.g. during work hours).
+   * Off until switched on.
+   */
+  var scheduleEnabled: Boolean
+    get() = prefs.getBoolean("scheduleEnabled", false)
+    set(v) = prefs.edit().putBoolean("scheduleEnabled", v).apply()
 
-  /** Each day's multiplier, 0 = Sunday … 6 = Saturday. 1 means no extra time that day. */
-  var bonusMultipliers: List<Float>
-    get() = (0..6).map { prefs.getFloat("bonusMultiplier:$it", defaultMultiplier(it)) }
-    set(v) = prefs.edit().apply { v.take(7).forEachIndexed { day, m -> putFloat("bonusMultiplier:$day", m) } }.apply()
+  /** Days the schedule applies, 0 = Sunday … 6 = Saturday. */
+  var scheduleDays: Set<Int>
+    get() = prefs.getStringSet("scheduleDays", null)?.mapNotNull { it.toIntOrNull() }?.toSet() ?: setOf(0, 6)
+    set(v) = prefs.edit().putStringSet("scheduleDays", v.map { it.toString() }.toSet()).apply()
 
-  /** The multiplier for the day [now] falls on; 1 when extra time is off. */
-  fun multiplierFor(now: Long = System.currentTimeMillis()): Float {
-    if (!bonusEnabled) return 1f
-    val day = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.DAY_OF_WEEK) - 1
-    return prefs.getFloat("bonusMultiplier:$day", defaultMultiplier(day))
+  /** "extra" or "focus". */
+  var scheduleMode: String
+    get() = prefs.getString("scheduleMode", "extra")!!
+    set(v) = prefs.edit().putString("scheduleMode", v).apply()
+
+  var scheduleMultiplier: Float
+    get() = prefs.getFloat("scheduleMultiplier", 2f)
+    set(v) = prefs.edit().putFloat("scheduleMultiplier", v).apply()
+
+  var scheduleAllDay: Boolean
+    get() = prefs.getBoolean("scheduleAllDay", true)
+    set(v) = prefs.edit().putBoolean("scheduleAllDay", v).apply()
+
+  /** Minutes after midnight. An end before the start runs past midnight; equal start and end means all day. */
+  var scheduleStart: Int
+    get() = prefs.getInt("scheduleStart", 9 * 60)
+    set(v) = prefs.edit().putInt("scheduleStart", v).apply()
+
+  var scheduleEnd: Int
+    get() = prefs.getInt("scheduleEnd", 17 * 60)
+    set(v) = prefs.edit().putInt("scheduleEnd", v).apply()
+
+  /** When the schedule window covering [now] ends, or 0 if the schedule doesn't apply at [now]. */
+  fun scheduleEndsAt(now: Long = System.currentTimeMillis()): Long {
+    if (!scheduleEnabled) return 0L
+    val cal = Calendar.getInstance().apply { timeInMillis = now }
+    if (cal.get(Calendar.DAY_OF_WEEK) - 1 !in scheduleDays) return 0L
+    val minute = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+    val start = scheduleStart
+    val end = scheduleEnd
+    val endMinute = when {
+      scheduleAllDay || start == end -> 24 * 60
+      start < end -> if (minute in start until end) end else return 0L
+      minute >= start -> 24 * 60 + end // runs past midnight
+      minute < end -> end
+      else -> return 0L
+    }
+    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+    cal.add(Calendar.MINUTE, endMinute)
+    return cal.timeInMillis
   }
 
-  fun isBonusDay(now: Long = System.currentTimeMillis()): Boolean = multiplierFor(now) > 1f
+  /** In focus mode, when the current focus window ends; 0 when not focusing. */
+  fun focusUntil(now: Long = System.currentTimeMillis()): Long =
+    if (scheduleMode == "focus") scheduleEndsAt(now) else 0L
 
-  /** The scroll time that applies right now: the app's own limit, multiplied on extra-time days. */
+  /** The scroll time multiplier in force at [now]: the schedule's during an extra-time window, otherwise 1. */
+  fun multiplierFor(now: Long = System.currentTimeMillis()): Float =
+    if (scheduleMode == "extra" && scheduleEndsAt(now) != 0L) scheduleMultiplier else 1f
+
+  fun isScheduleActive(now: Long = System.currentTimeMillis()): Boolean = scheduleEndsAt(now) != 0L
+
+  /** The scroll time that applies right now: the app's own limit, multiplied during an extra-time window. */
   fun effectiveAllowedFor(pkg: String, now: Long = System.currentTimeMillis()): Long =
     (allowedFor(pkg) * multiplierFor(now)).toLong()
 
@@ -84,7 +131,5 @@ class BlockerState(context: Context) {
   companion object {
     const val DEFAULT_ALLOWED_MS = 10 * 60_000L
     const val DEFAULT_BLOCK_MS = 15 * 60_000L
-    /** Until changed, Saturday and Sunday get 2x and weekdays get none. */
-    fun defaultMultiplier(day: Int): Float = if (day == 0 || day == 6) 2f else 1f
   }
 }
